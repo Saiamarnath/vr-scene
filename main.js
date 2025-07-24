@@ -39,13 +39,43 @@ loader.load('scene-optimized.glb', (gltf) => {
   scene.add(model);
 }, undefined, (e) => console.error('GLB Load Error:', e));
 
-// Gaze-based auto movement
+// Clock
+const clock = new THREE.Clock();
+
+// Desktop Controls (before entering VR)
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let moveUp = false, moveDown = false;
+let velocity = new THREE.Vector3();
+
+if (!/Mobi|Android/i.test(navigator.userAgent)) {
+  document.addEventListener('keydown', (e) => {
+    switch (e.code) {
+      case 'KeyW': case 'ArrowUp': moveForward = true; break;
+      case 'KeyS': case 'ArrowDown': moveBackward = true; break;
+      case 'KeyA': case 'ArrowLeft': moveLeft = true; break;
+      case 'KeyD': case 'ArrowRight': moveRight = true; break;
+      case 'KeyE': case 'PageUp': moveUp = true; break;
+      case 'KeyQ': case 'PageDown': moveDown = true; break;
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    switch (e.code) {
+      case 'KeyW': case 'ArrowUp': moveForward = false; break;
+      case 'KeyS': case 'ArrowDown': moveBackward = false; break;
+      case 'KeyA': case 'ArrowLeft': moveLeft = false; break;
+      case 'KeyD': case 'ArrowRight': moveRight = false; break;
+      case 'KeyE': case 'PageUp': moveUp = false; break;
+      case 'KeyQ': case 'PageDown': moveDown = false; break;
+    }
+  });
+}
+
+// Gaze-based auto movement (after entering VR on mobile)
 let gazeTimer = 0;
 const GAZE_HOLD_TIME = 2; // seconds
 let isMoving = false;
 let moveStartTime = 0;
 const MOVE_DURATION = 3; // seconds
-const clock = new THREE.Clock();
 const raycaster = new THREE.Raycaster();
 const gazeVector = new THREE.Vector2(0, 0);
 
@@ -59,8 +89,8 @@ function render() {
 
   const xrCamera = renderer.xr.getCamera(camera);
 
-  // Gaze detection
   if (renderer.xr.isPresenting) {
+    // Gaze detection for mobile VR
     raycaster.setFromCamera(gazeVector, xrCamera);
     const dir = new THREE.Vector3();
     xrCamera.getWorldDirection(dir);
@@ -82,6 +112,17 @@ function render() {
         isMoving = false;
       }
     }
+  } else {
+    // Desktop movement logic
+    velocity.set(0, 0, 0);
+    if (moveForward) velocity.z -= 2 * delta;
+    if (moveBackward) velocity.z += 2 * delta;
+    if (moveLeft) velocity.x -= 2 * delta;
+    if (moveRight) velocity.x += 2 * delta;
+    if (moveUp) velocity.y += 2 * delta;
+    if (moveDown) velocity.y -= 2 * delta;
+
+    camera.position.add(velocity);
   }
 
   renderer.render(scene, camera);
