@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
@@ -38,6 +39,7 @@ new RGBELoader().load('env.hdr', (texture) => {
 
 // Load GLB model
 const loader = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder);
 loader.load('scene-optimized.glb', (gltf) => {
   const model = gltf.scene;
   model.rotation.x = Math.PI;
