@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>VR Scene</title>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="joystick" style="position: fixed; bottom: 50px; left: 50px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; touch-action: none;"></div>
+    <button id="upBtn" style="position:fixed; right:50px; bottom:120px;">Up</button>
+    <button id="downBtn" style="position:fixed; right:50px; bottom:60px;">Down</button>
+
+
+    <!-- CDN Scripts -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
+          "three/examples/jsm/loaders/RGBELoader.js": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/RGBELoader.js",
+          "three/examples/jsm/controls/PointerLockControls.js": "https://unpkg.com/three@0.160.0/examples/jsm/controls/PointerLockControls.js",
+          "three/examples/jsm/webxr/VRButton.js": "https://unpkg.com/three@0.160.0/examples/jsm/webxr/VRButton.js"
+        }
+      }
+    </script>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
