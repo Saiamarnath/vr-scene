@@ -52,11 +52,11 @@ const clock = new THREE.Clock();
 
 // Movement state
 let isMoving = false;
-let moveStartTime = 0;
 let moveDirection = new THREE.Vector3();
+let moveTarget = new THREE.Vector3();
 let gazeTimer = 0;
 const GAZE_HOLD_TIME = 2;
-const MOVE_DURATION = 3;
+const MOVE_DISTANCE = 10;
 const moveSpeed = 2;
 
 // Add 3D gaze ring
@@ -99,7 +99,6 @@ function animate() {
 
 function render() {
   const delta = clock.getDelta();
-  const elapsed = clock.elapsedTime;
   const isVR = renderer.xr.isPresenting;
   const xrCamera = renderer.xr.getCamera(camera);
   const rig = xrCamera.parent || controls.getObject();
@@ -109,35 +108,35 @@ function render() {
       gazeTimer += delta;
       gazeRing.visible = true;
 
-      // Position the ring 0.5 meters (50 cm) ahead of view
       const dir = new THREE.Vector3();
       xrCamera.getWorldDirection(dir);
       dir.normalize();
-      gazeRing.position.copy(xrCamera.position).add(dir.multiplyScalar(0.5));
+      gazeRing.position.copy(xrCamera.position).add(dir.clone().multiplyScalar(0.5));
       gazeRing.lookAt(xrCamera.position);
 
-      // Scale the ring to show progress
       const scale = Math.min(gazeTimer / GAZE_HOLD_TIME, 1);
       gazeRing.scale.set(scale, scale, scale);
 
       if (gazeTimer >= GAZE_HOLD_TIME) {
         xrCamera.getWorldDirection(moveDirection);
         moveDirection.normalize();
+        moveTarget.copy(rig.position).add(moveDirection.clone().multiplyScalar(MOVE_DISTANCE));
         isMoving = true;
-        moveStartTime = elapsed;
         gazeTimer = 0;
         gazeRing.visible = false;
       }
     } else {
-      if (elapsed - moveStartTime <= MOVE_DURATION) {
-        const step = moveDirection.clone().multiplyScalar(moveSpeed * delta);
+      const toTarget = moveTarget.clone().sub(rig.position);
+      const step = moveDirection.clone().multiplyScalar(moveSpeed * delta);
+
+      if (step.lengthSq() < toTarget.lengthSq()) {
         rig.position.add(step);
       } else {
+        rig.position.copy(moveTarget);
         isMoving = false;
       }
     }
   } else {
-    // Desktop movement
     const velocity = new THREE.Vector3();
     if (moveForward) velocity.z -= 1;
     if (moveBackward) velocity.z += 1;
