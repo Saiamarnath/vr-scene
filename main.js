@@ -59,15 +59,19 @@ const GAZE_HOLD_TIME = 2;
 const MOVE_DURATION = 3;
 const moveSpeed = 2;
 
-// Gaze visual feedback
-const gazeRing = new THREE.Mesh(
-  new THREE.RingGeometry(0.04, 0.05, 32),
-  new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
-);
-gazeRing.rotation.x = -Math.PI / 2;
-camera.add(gazeRing);
-gazeRing.position.set(0, 0, -1);
-gazeRing.visible = false;
+// Gaze visual feedback using CSS2DObject (cross-platform friendly)
+const ringDiv = document.createElement('div');
+ringDiv.style.border = '5px solid lime';
+ringDiv.style.borderRadius = '50%';
+ringDiv.style.width = '30px';
+ringDiv.style.height = '30px';
+ringDiv.style.position = 'absolute';
+ringDiv.style.top = '50%';
+ringDiv.style.left = '50%';
+ringDiv.style.transform = 'translate(-50%, -50%) scale(0)';
+ringDiv.style.transition = 'transform 0.1s ease-out';
+ringDiv.style.pointerEvents = 'none';
+document.body.appendChild(ringDiv);
 
 // Keyboard controls for desktop
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
@@ -112,8 +116,7 @@ function render() {
   if (isVR) {
     if (!isMoving) {
       gazeTimer += delta;
-      gazeRing.visible = true;
-      gazeRing.scale.setScalar(gazeTimer / GAZE_HOLD_TIME);
+      ringDiv.style.transform = `translate(-50%, -50%) scale(${Math.min(gazeTimer / GAZE_HOLD_TIME, 1)})`;
 
       if (gazeTimer >= GAZE_HOLD_TIME) {
         xrCamera.getWorldDirection(moveDirection);
@@ -121,8 +124,7 @@ function render() {
         isMoving = true;
         moveStartTime = elapsed;
         gazeTimer = 0;
-        gazeRing.visible = false;
-        gazeRing.scale.setScalar(1);
+        ringDiv.style.transform = 'translate(-50%, -50%) scale(0)';
       }
     } else {
       if (elapsed - moveStartTime <= MOVE_DURATION) {
