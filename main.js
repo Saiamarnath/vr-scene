@@ -1,3 +1,4 @@
+// main.js
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -5,7 +6,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
-// Scene & Camera
+// Scene and camera
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 1.6, 3);
@@ -17,22 +18,25 @@ renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 document.body.appendChild(VRButton.createButton(renderer));
 
-// PointerLockControls (for desktop mouse look)
+// PointerLockControls for desktop
 const controls = new PointerLockControls(camera, document.body);
 scene.add(controls.getObject());
+
 if (!/Mobi|Android/i.test(navigator.userAgent)) {
-  document.body.addEventListener('click', () => controls.lock());
+  document.addEventListener('click', () => controls.lock());
 }
 
-// Lighting & Environment
+// Lighting
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
+
+// Environment
 new RGBELoader().load('env.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = texture;
   scene.background = texture;
 });
 
-// Load GLB Model
+// Load model
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 loader.load('scene-optimized.glb', (gltf) => {
@@ -43,20 +47,31 @@ loader.load('scene-optimized.glb', (gltf) => {
   scene.add(model);
 }, undefined, (e) => console.error('GLB load error:', e));
 
-// Movement Flags
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-let moveUp = false, moveDown = false;
-let gazeTimer = 0;
+// Clock
+const clock = new THREE.Clock();
+
+// Movement state
 let isMoving = false;
 let moveStartTime = 0;
 let moveDirection = new THREE.Vector3();
+let gazeTimer = 0;
 const GAZE_HOLD_TIME = 2;
 const MOVE_DURATION = 3;
 const moveSpeed = 2;
 
-const clock = new THREE.Clock();
+// Gaze visual feedback
+const gazeRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.04, 0.05, 32),
+  new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+);
+gazeRing.rotation.x = -Math.PI / 2;
+camera.add(gazeRing);
+gazeRing.position.set(0, 0, -1);
+gazeRing.visible = false;
 
-// Keyboard Controls (Desktop)
+// Keyboard controls for desktop
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
+
 if (!/Mobi|Android/i.test(navigator.userAgent)) {
   document.addEventListener('keydown', (e) => {
     switch (e.code) {
@@ -68,6 +83,7 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
       case 'KeyQ': case 'PageDown': moveDown = true; break;
     }
   });
+
   document.addEventListener('keyup', (e) => {
     switch (e.code) {
       case 'KeyW': case 'ArrowUp': moveForward = false; break;
@@ -80,7 +96,7 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
   });
 }
 
-// Animate
+// Render loop
 function animate() {
   renderer.setAnimationLoop(render);
 }
@@ -90,22 +106,26 @@ function render() {
   const elapsed = clock.elapsedTime;
   const isVR = renderer.xr.isPresenting;
 
-  const xrCam = renderer.xr.getCamera(camera);
-  const rig = xrCam.parent || controls.getObject(); // camera group or desktop controls
+  const xrCamera = renderer.xr.getCamera(camera);
+  const rig = xrCamera.parent || controls.getObject();
 
   if (isVR) {
-    // Gaze-based forward movement after staring for GAZE_HOLD_TIME
     if (!isMoving) {
       gazeTimer += delta;
+      gazeRing.visible = true;
+      gazeRing.scale.setScalar(gazeTimer / GAZE_HOLD_TIME);
+
       if (gazeTimer >= GAZE_HOLD_TIME) {
+        xrCamera.getWorldDirection(moveDirection);
+        moveDirection.normalize();
         isMoving = true;
         moveStartTime = elapsed;
-        xrCam.getWorldDirection(moveDirection);
         gazeTimer = 0;
+        gazeRing.visible = false;
+        gazeRing.scale.setScalar(1);
       }
     } else {
-      const duration = elapsed - moveStartTime;
-      if (duration <= MOVE_DURATION) {
+      if (elapsed - moveStartTime <= MOVE_DURATION) {
         const step = moveDirection.clone().multiplyScalar(moveSpeed * delta);
         rig.position.add(step);
       } else {
@@ -113,15 +133,14 @@ function render() {
       }
     }
   } else {
-    // Desktop keyboard movement
-    let velocity = new THREE.Vector3();
+    // Desktop movement
+    const velocity = new THREE.Vector3();
     if (moveForward) velocity.z -= 1;
     if (moveBackward) velocity.z += 1;
     if (moveLeft) velocity.x -= 1;
     if (moveRight) velocity.x += 1;
     if (moveUp) velocity.y += 1;
     if (moveDown) velocity.y -= 1;
-
     velocity.normalize().multiplyScalar(moveSpeed * delta);
     controls.getObject().position.add(velocity);
   }
