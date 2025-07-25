@@ -5,7 +5,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
-// Scene setup
+// Scene and camera
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 1.6, 3);
@@ -18,17 +18,16 @@ document.body.appendChild(renderer.domElement);
 document.body.appendChild(VRButton.createButton(renderer));
 
 // Lighting
-const light = new THREE.HemisphereLight(0xffffff, 0x444444);
-scene.add(light);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
 
-// HDRI
+// Environment
 new RGBELoader().load('env.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = texture;
   scene.background = texture;
 });
 
-// Load GLB
+// Load model
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 loader.load('scene-optimized.glb', (gltf) => {
@@ -37,16 +36,23 @@ loader.load('scene-optimized.glb', (gltf) => {
   model.rotation.z = Math.PI;
   model.position.set(0, -13, 0);
   scene.add(model);
-}, undefined, (e) => console.error('GLB Load Error:', e));
+}, undefined, (e) => console.error('GLB load error:', e));
 
 // Clock
 const clock = new THREE.Clock();
 
-// Desktop Controls (before entering VR)
+// Flags and variables
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let moveUp = false, moveDown = false;
-let velocity = new THREE.Vector3();
+let gazeTimer = 0;
+let isMoving = false;
+let moveStartTime = 0;
+let moveDirection = new THREE.Vector3();
+const GAZE_HOLD_TIME = 2; // seconds
+const MOVE_DURATION = 3; // seconds
+const moveSpeed = 2; // units/sec
 
+// Keyboard controls (Desktop)
 if (!/Mobi|Android/i.test(navigator.userAgent)) {
   document.addEventListener('keydown', (e) => {
     switch (e.code) {
@@ -70,15 +76,7 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
   });
 }
 
-// Gaze-based auto movement (after entering VR on mobile)
-let gazeTimer = 0;
-const GAZE_HOLD_TIME = 2; // seconds
-let isMoving = false;
-let moveStartTime = 0;
-const MOVE_DURATION = 3; // seconds
-const raycaster = new THREE.Raycaster();
-const gazeVector = new THREE.Vector2(0, 0);
-
+// Render loop
 function animate() {
   renderer.setAnimationLoop(render);
 }
@@ -87,42 +85,40 @@ function render() {
   const delta = clock.getDelta();
   const elapsed = clock.elapsedTime;
 
+  const isVR = renderer.xr.isPresenting;
   const xrCamera = renderer.xr.getCamera(camera);
+  const user = xrCamera.parent || camera; // actual user camera in VR or desktop
 
-  if (renderer.xr.isPresenting) {
-    // Gaze detection for mobile VR
-    raycaster.setFromCamera(gazeVector, xrCamera);
-    const dir = new THREE.Vector3();
-    xrCamera.getWorldDirection(dir);
-
+  if (isVR) {
+    // VR gaze logic
     if (!isMoving) {
       gazeTimer += delta;
       if (gazeTimer >= GAZE_HOLD_TIME) {
         isMoving = true;
         moveStartTime = elapsed;
-        camera.userData.moveDirection = dir.clone();
+        xrCamera.getWorldDirection(moveDirection);
         gazeTimer = 0;
       }
     } else {
-      const moveElapsed = elapsed - moveStartTime;
-      if (moveElapsed <= MOVE_DURATION) {
-        const step = camera.userData.moveDirection.clone().multiplyScalar(delta * 2);
-        camera.position.add(step);
+      if (elapsed - moveStartTime <= MOVE_DURATION) {
+        const step = moveDirection.clone().multiplyScalar(moveSpeed * delta);
+        user.position.add(step);
       } else {
         isMoving = false;
       }
     }
   } else {
-    // Desktop movement logic
-    velocity.set(0, 0, 0);
-    if (moveForward) velocity.z -= 2 * delta;
-    if (moveBackward) velocity.z += 2 * delta;
-    if (moveLeft) velocity.x -= 2 * delta;
-    if (moveRight) velocity.x += 2 * delta;
-    if (moveUp) velocity.y += 2 * delta;
-    if (moveDown) velocity.y -= 2 * delta;
+    // Desktop movement
+    let velocity = new THREE.Vector3();
+    if (moveForward) velocity.z -= 1;
+    if (moveBackward) velocity.z += 1;
+    if (moveLeft) velocity.x -= 1;
+    if (moveRight) velocity.x += 1;
+    if (moveUp) velocity.y += 1;
+    if (moveDown) velocity.y -= 1;
 
-    camera.position.add(velocity);
+    velocity.normalize().multiplyScalar(moveSpeed * delta);
+    user.position.add(velocity);
   }
 
   renderer.render(scene, camera);
