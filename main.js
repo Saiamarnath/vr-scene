@@ -59,19 +59,12 @@ const GAZE_HOLD_TIME = 2;
 const MOVE_DURATION = 3;
 const moveSpeed = 2;
 
-// Gaze visual feedback using CSS2DObject (cross-platform friendly)
-const ringDiv = document.createElement('div');
-ringDiv.style.border = '5px solid lime';
-ringDiv.style.borderRadius = '50%';
-ringDiv.style.width = '30px';
-ringDiv.style.height = '30px';
-ringDiv.style.position = 'absolute';
-ringDiv.style.top = '50%';
-ringDiv.style.left = '50%';
-ringDiv.style.transform = 'translate(-50%, -50%) scale(0)';
-ringDiv.style.transition = 'transform 0.1s ease-out';
-ringDiv.style.pointerEvents = 'none';
-document.body.appendChild(ringDiv);
+// Add 3D gaze ring
+const ringGeometry = new THREE.RingGeometry(0.1, 0.12, 32);
+const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+const gazeRing = new THREE.Mesh(ringGeometry, ringMaterial);
+gazeRing.visible = false;
+scene.add(gazeRing);
 
 // Keyboard controls for desktop
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
@@ -100,7 +93,6 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
   });
 }
 
-// Render loop
 function animate() {
   renderer.setAnimationLoop(render);
 }
@@ -109,14 +101,24 @@ function render() {
   const delta = clock.getDelta();
   const elapsed = clock.elapsedTime;
   const isVR = renderer.xr.isPresenting;
-
   const xrCamera = renderer.xr.getCamera(camera);
   const rig = xrCamera.parent || controls.getObject();
 
   if (isVR) {
     if (!isMoving) {
       gazeTimer += delta;
-      ringDiv.style.transform = `translate(-50%, -50%) scale(${Math.min(gazeTimer / GAZE_HOLD_TIME, 1)})`;
+      gazeRing.visible = true;
+
+      // Position the ring 0.5 meters (50 cm) ahead of view
+      const dir = new THREE.Vector3();
+      xrCamera.getWorldDirection(dir);
+      dir.normalize();
+      gazeRing.position.copy(xrCamera.position).add(dir.multiplyScalar(0.5));
+      gazeRing.lookAt(xrCamera.position);
+
+      // Scale the ring to show progress
+      const scale = Math.min(gazeTimer / GAZE_HOLD_TIME, 1);
+      gazeRing.scale.set(scale, scale, scale);
 
       if (gazeTimer >= GAZE_HOLD_TIME) {
         xrCamera.getWorldDirection(moveDirection);
@@ -124,7 +126,7 @@ function render() {
         isMoving = true;
         moveStartTime = elapsed;
         gazeTimer = 0;
-        ringDiv.style.transform = 'translate(-50%, -50%) scale(0)';
+        gazeRing.visible = false;
       }
     } else {
       if (elapsed - moveStartTime <= MOVE_DURATION) {
