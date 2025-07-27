@@ -6,7 +6,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
-// Scene and camera
+// Scene and camera setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 1.6, 3);
@@ -18,7 +18,7 @@ renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 document.body.appendChild(VRButton.createButton(renderer));
 
-// PointerLockControls for desktop
+// Desktop pointer lock controls
 const controls = new PointerLockControls(camera, document.body);
 scene.add(controls.getObject());
 
@@ -29,7 +29,7 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
 // Lighting
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
 
-// Environment
+// HDR environment
 new RGBELoader().load('env.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = texture;
@@ -50,23 +50,23 @@ loader.load('scene-optimized.glb', (gltf) => {
 // Clock
 const clock = new THREE.Clock();
 
-// Movement state
+// Phone VR gaze movement state
 let isMoving = false;
 let moveDirection = new THREE.Vector3();
 let moveTarget = new THREE.Vector3();
 let gazeTimer = 0;
-const GAZE_HOLD_TIME = 2;
-const MOVE_DISTANCE = 10;
-const moveSpeed = 2;
+const GAZE_HOLD_TIME = 2;   // Hold gaze for 2s to trigger
+const MOVE_DISTANCE = 10;   // Move exactly 10m
+const moveSpeed = 2;        // Speed in m/s
 
-// Add 3D gaze ring
+// Create gaze ring (3D object) visible in VR
 const ringGeometry = new THREE.RingGeometry(0.1, 0.12, 32);
 const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
 const gazeRing = new THREE.Mesh(ringGeometry, ringMaterial);
 gazeRing.visible = false;
 scene.add(gazeRing);
 
-// Keyboard controls for desktop
+// Laptop keyboard movement flags
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
 
 if (!/Mobi|Android/i.test(navigator.userAgent)) {
@@ -80,7 +80,6 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
       case 'KeyQ': case 'PageDown': moveDown = true; break;
     }
   });
-
   document.addEventListener('keyup', (e) => {
     switch (e.code) {
       case 'KeyW': case 'ArrowUp': moveForward = false; break;
@@ -93,30 +92,35 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
   });
 }
 
+// Animation loop
 function animate() {
   renderer.setAnimationLoop(render);
 }
 
 function render() {
   const delta = clock.getDelta();
-  const isVR = renderer.xr.isPresenting;
   const xrCamera = renderer.xr.getCamera(camera);
   const rig = xrCamera.parent || controls.getObject();
+  const isVR = renderer.xr.isPresenting;
 
   if (isVR) {
     if (!isMoving) {
+      // Start gaze timer and display ring
       gazeTimer += delta;
       gazeRing.visible = true;
 
+      // Position ring 50 cm from camera in look direction
       const dir = new THREE.Vector3();
       xrCamera.getWorldDirection(dir);
       dir.normalize();
       gazeRing.position.copy(xrCamera.position).add(dir.clone().multiplyScalar(0.5));
       gazeRing.lookAt(xrCamera.position);
 
+      // Scale ring to show progress
       const scale = Math.min(gazeTimer / GAZE_HOLD_TIME, 1);
       gazeRing.scale.set(scale, scale, scale);
 
+      // When timer completes, trigger movement
       if (gazeTimer >= GAZE_HOLD_TIME) {
         xrCamera.getWorldDirection(moveDirection);
         moveDirection.normalize();
@@ -124,19 +128,25 @@ function render() {
         isMoving = true;
         gazeTimer = 0;
         gazeRing.visible = false;
+        gazeRing.scale.set(0, 0, 0); // reset ring size for next use
       }
     } else {
+      // Move until we reach the 10m target
       const toTarget = moveTarget.clone().sub(rig.position);
       const step = moveDirection.clone().multiplyScalar(moveSpeed * delta);
 
       if (step.lengthSq() < toTarget.lengthSq()) {
         rig.position.add(step);
       } else {
+        // Reached target: stop movement and reset for next gaze
         rig.position.copy(moveTarget);
         isMoving = false;
+        gazeRing.visible = true;
+        gazeRing.scale.set(0, 0, 0);
       }
     }
   } else {
+    // Desktop movement controls
     const velocity = new THREE.Vector3();
     if (moveForward) velocity.z -= 1;
     if (moveBackward) velocity.z += 1;
