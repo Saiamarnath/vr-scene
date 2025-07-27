@@ -1,4 +1,4 @@
-// main.js
+// main.js FINAL VR RIG FIX
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -6,11 +6,17 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
-// Scene and camera setup
+// ------------------ SCENE & CAMERA ------------------
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 1.6, 3);
 
+// ✅ Create a RIG for VR & desktop movement
+const rig = new THREE.Group();
+rig.add(camera);
+scene.add(rig);
+
+// ------------------ RENDERER ------------------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -18,25 +24,25 @@ renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 document.body.appendChild(VRButton.createButton(renderer));
 
-// Desktop pointer lock controls
+// ------------------ DESKTOP CONTROLS ------------------
 const controls = new PointerLockControls(camera, document.body);
-scene.add(controls.getObject());
+rig.add(controls.getObject()); // ✅ Attach controls to rig
 
 if (!/Mobi|Android/i.test(navigator.userAgent)) {
   document.addEventListener('click', () => controls.lock());
 }
 
-// Lighting
+// ------------------ LIGHTING ------------------
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
 
-// HDR environment
+// ------------------ ENVIRONMENT ------------------
 new RGBELoader().load('env.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = texture;
   scene.background = texture;
 });
 
-// Load model
+// ------------------ LOAD GLB MODEL ------------------
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 loader.load('scene-optimized.glb', (gltf) => {
@@ -47,26 +53,27 @@ loader.load('scene-optimized.glb', (gltf) => {
   scene.add(model);
 }, undefined, (e) => console.error('GLB load error:', e));
 
-// Clock
+// ------------------ CLOCK ------------------
 const clock = new THREE.Clock();
 
-// Phone VR gaze movement state
+// ------------------ VR AUTO-MOVE STATE ------------------
 let isMoving = false;
 let moveDirection = new THREE.Vector3();
 let moveTarget = new THREE.Vector3();
 let gazeTimer = 0;
-const GAZE_HOLD_TIME = 2;   // Hold gaze for 2s to trigger
-const MOVE_DISTANCE = 10;   // Move exactly 10m
-const moveSpeed = 2;        // Speed in m/s
 
-// Create gaze ring (3D object) visible in VR
+const GAZE_HOLD_TIME = 2;   // seconds to trigger movement
+const MOVE_DISTANCE = 10;   // move 10 meters forward
+const moveSpeed = 2;        // speed m/s
+
+// ------------------ GAZE RING ------------------
 const ringGeometry = new THREE.RingGeometry(0.1, 0.12, 32);
 const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
 const gazeRing = new THREE.Mesh(ringGeometry, ringMaterial);
 gazeRing.visible = false;
 scene.add(gazeRing);
 
-// Laptop keyboard movement flags
+// ------------------ DESKTOP KEYS ------------------
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
 
 if (!/Mobi|Android/i.test(navigator.userAgent)) {
@@ -80,6 +87,7 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
       case 'KeyQ': case 'PageDown': moveDown = true; break;
     }
   });
+
   document.addEventListener('keyup', (e) => {
     switch (e.code) {
       case 'KeyW': case 'ArrowUp': moveForward = false; break;
@@ -92,35 +100,34 @@ if (!/Mobi|Android/i.test(navigator.userAgent)) {
   });
 }
 
-// Animation loop
+// ------------------ ANIMATION LOOP ------------------
 function animate() {
   renderer.setAnimationLoop(render);
 }
 
+// ------------------ RENDER ------------------
 function render() {
   const delta = clock.getDelta();
-  const xrCamera = renderer.xr.getCamera(camera);
-  const rig = xrCamera.parent || controls.getObject();
   const isVR = renderer.xr.isPresenting;
+  const xrCamera = renderer.xr.getCamera(camera);
 
   if (isVR) {
+    // ✅ VR GAZE-BASED MOVEMENT
     if (!isMoving) {
-      // Start gaze timer and display ring
       gazeTimer += delta;
       gazeRing.visible = true;
 
-      // Position ring 50 cm from camera in look direction
+      // Ring 50 cm ahead
       const dir = new THREE.Vector3();
       xrCamera.getWorldDirection(dir);
       dir.normalize();
       gazeRing.position.copy(xrCamera.position).add(dir.clone().multiplyScalar(0.5));
       gazeRing.lookAt(xrCamera.position);
 
-      // Scale ring to show progress
+      // scale ring
       const scale = Math.min(gazeTimer / GAZE_HOLD_TIME, 1);
       gazeRing.scale.set(scale, scale, scale);
 
-      // When timer completes, trigger movement
       if (gazeTimer >= GAZE_HOLD_TIME) {
         xrCamera.getWorldDirection(moveDirection);
         moveDirection.normalize();
@@ -128,25 +135,24 @@ function render() {
         isMoving = true;
         gazeTimer = 0;
         gazeRing.visible = false;
-        gazeRing.scale.set(0, 0, 0); // reset ring size for next use
+        gazeRing.scale.set(0, 0, 0);
       }
     } else {
-      // Move until we reach the 10m target
+      // Move until target is reached
       const toTarget = moveTarget.clone().sub(rig.position);
       const step = moveDirection.clone().multiplyScalar(moveSpeed * delta);
 
       if (step.lengthSq() < toTarget.lengthSq()) {
         rig.position.add(step);
       } else {
-        // Reached target: stop movement and reset for next gaze
         rig.position.copy(moveTarget);
         isMoving = false;
         gazeRing.visible = true;
-        gazeRing.scale.set(0, 0, 0);
+        gazeRing.scale.set(0, 0, 0); // reset for next gaze
       }
     }
   } else {
-    // Desktop movement controls
+    // ✅ DESKTOP MOVEMENT
     const velocity = new THREE.Vector3();
     if (moveForward) velocity.z -= 1;
     if (moveBackward) velocity.z += 1;
@@ -155,7 +161,7 @@ function render() {
     if (moveUp) velocity.y += 1;
     if (moveDown) velocity.y -= 1;
     velocity.normalize().multiplyScalar(moveSpeed * delta);
-    controls.getObject().position.add(velocity);
+    rig.position.add(velocity);
   }
 
   renderer.render(scene, camera);
