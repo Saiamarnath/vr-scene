@@ -5,7 +5,6 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
-import { PI } from 'three/src/nodes/TSL.js';
 
 // ------------------ SCENE & CAMERA ------------------
 const scene = new THREE.Scene();
