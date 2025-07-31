@@ -138,7 +138,7 @@ function render() {
         moveDirection.normalize();
 
         // ✅ Adjust gaze direction by rig’s rotation so “forward” is correct
-        moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -rig.rotation.y);
+        //moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -rig.rotation.y);
 
         // Move target
         moveTarget.copy(rig.position).add(moveDirection.clone().multiplyScalar(MOVE_DISTANCE));
