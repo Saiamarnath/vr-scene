@@ -138,7 +138,7 @@ function render() {
         moveDirection.normalize();
 
         // ✅ FIX: adjust gaze direction for rig’s 270° spawn rotation
-        moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -3 * (Math.PI / 2));
+        //moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -3 * (Math.PI / 2));
 
         // Move target
         moveTarget.copy(rig.position).add(moveDirection.clone().multiplyScalar(MOVE_DISTANCE));
