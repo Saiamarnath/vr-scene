@@ -1,4 +1,4 @@
-// main.js FINAL VR RIG FIX WITH START POSITION + GAZE FIX
+// main.js FINAL ORIENTATION FIX (Desktop + VR)
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -18,7 +18,7 @@ scene.add(rig);
 
 // ✅ SET START POSITION & ROTATION
 rig.position.set(0, 0, 20);                // start 20 meters forward in Z
-rig.rotation.y = 3 * (Math.PI / 2);        // 270° anti-clockwise (spawn angle you liked)
+rig.rotation.y = 3 * (Math.PI / 2);        // spawn facing 270° anti-clockwise
 
 // ------------------ RENDERER ------------------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -137,8 +137,9 @@ function render() {
         xrCamera.getWorldDirection(moveDirection);
         moveDirection.normalize();
 
-        // ✅ FIX: adjust gaze direction for rig’s 270° spawn rotation
-        moveDirection.applyAxisAngle(new THREE.Vector3(0, 0, 1), -rig.rotation.y);
+        // ✅ Adjust gaze direction by rig’s rotation so “forward” is correct
+        moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -rig.rotation.y);
+
         // Move target
         moveTarget.copy(rig.position).add(moveDirection.clone().multiplyScalar(MOVE_DISTANCE));
         isMoving = true;
@@ -169,6 +170,10 @@ function render() {
     if (moveRight) velocity.x += 1;
     if (moveUp) velocity.y += 1;
     if (moveDown) velocity.y -= 1;
+
+    // ✅ Rotate velocity by rig’s spawn rotation so keys match view
+    velocity.applyAxisAngle(new THREE.Vector3(0, 1, 0), rig.rotation.y);
+
     velocity.normalize().multiplyScalar(moveSpeed * delta);
     rig.position.add(velocity);
   }
