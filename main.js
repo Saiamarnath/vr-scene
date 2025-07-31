@@ -5,6 +5,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { PI } from 'three/src/nodes/TSL.js';
 
 // ------------------ SCENE & CAMERA ------------------
 const scene = new THREE.Scene();
@@ -138,7 +139,7 @@ function render() {
         moveDirection.normalize();
 
         // ✅ Adjust gaze direction by rig’s rotation so “forward” is correct
-        //moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -rig.rotation.y);
+        moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -(rig.rotation.y + PI/2));
 
         // Move target
         moveTarget.copy(rig.position).add(moveDirection.clone().multiplyScalar(MOVE_DISTANCE));
