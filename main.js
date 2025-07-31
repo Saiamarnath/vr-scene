@@ -1,4 +1,4 @@
-// main.js FINAL VR RIG FIX
+// main.js FINAL VR RIG FIX WITH START POSITION
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -15,6 +15,10 @@ camera.position.set(0, 1.6, 3);
 const rig = new THREE.Group();
 rig.add(camera);
 scene.add(rig);
+
+// ✅ SET START POSITION & ROTATION
+rig.position.set(0, 0, 20);      // start 20 meters forward in Z
+rig.rotation.y = 3*(Math.PI / 2);    // rotate 90° anti-clockwise
 
 // ------------------ RENDERER ------------------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
